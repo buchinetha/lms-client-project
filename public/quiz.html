@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🧠 Course Quiz</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; padding: 20px; }
+    h1 { text-align: center; color: #007bff; }
+    .quiz-container { max-width: 700px; margin: 20px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .question { margin-bottom: 20px; }
+    .question h3 { color: #333; }
+    .option { margin: 8px 0; }
+    button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    #result { margin-top: 20px; font-weight: bold; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>🧠 Course Quiz</h1>
+  <div class="quiz-container" id="quizContainer">
+    <p>Loading quiz...</p>
+  </div>
+  <div id="result"></div>
+
+  <script>
+    const studentId = localStorage.getItem('studentId');
+    if (!studentId) {
+      alert('Please log in first');
+      window.location.href = 'login.html';
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const courseId = urlParams.get('courseId');
+
+    async function loadQuiz() {
+      try {
+        const res = await fetch(`/api/quiz/${courseId}`);
+        if (!res.ok) {
+          document.getElementById('quizContainer').innerHTML = "<p>No quiz found for this course.</p>";
+          return;
+        }
+
+        const quiz = await res.json();
+        const container = document.getElementById('quizContainer');
+
+        let quizHTML = '';
+        quiz.questions.forEach((q, idx) => {
+          quizHTML += `
+            <div class="question">
+              <h3>Q${idx + 1}. ${q.question}</h3>
+              ${q.options.map(opt => `
+                <div class="option">
+                  <label>
+                    <input type="radio" name="q${idx}" value="${opt}"> ${opt}
+                  </label>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        });
+
+        quizHTML += `<button id="submitQuiz">Submit Quiz</button>`;
+        container.innerHTML = quizHTML;
+
+        document.getElementById('submitQuiz').addEventListener('click', () => {
+          let score = 0;
+          quiz.questions.forEach((q, i) => {
+            const selected = document.querySelector(`input[name="q${i}"]:checked`);
+            if (selected && selected.value === q.correctAnswer) {
+              score++;
+            }
+          });
+
+          const total = quiz.questions.length;
+          const percent = Math.round((score / total) * 100);
+          document.getElementById('result').innerText = `✅ You scored ${score}/${total} (${percent}%)`;
+
+          // Save quiz result
+          fetch('/api/progress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentId,
+              courseId,
+              quizResults: [{ score, total }],
+              completionPercentage: percent
+            })
+          });
+        });
+
+      } catch (err) {
+        document.getElementById('quizContainer').innerHTML = `<p>Error loading quiz: ${err.message}</p>`;
+      }
+    }
+
+    loadQuiz();
+  </script>
+</body>
+</html>

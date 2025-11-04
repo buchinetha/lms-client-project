@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Student Dashboard</title>
+</head>
+ <style>
+    body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; padding: 20px; }
+    #header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    #logoutBtn { background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+    #logoutBtn:hover { background: #b02a37; }
+    h1 { text-align: center; color: #333; }
+    .course-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+    .course-card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .course-title { font-size: 20px; color: #007bff; margin-bottom: 10px; }
+    .lesson { background: #f4f4f4; margin: 6px 0; padding: 8px 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .lesson span { font-weight: bold; }
+    .progress-container { margin-top: 10px; background: #eee; border-radius: 6px; overflow: hidden; }
+    .progress-bar { height: 10px; background: #28a745; width: 0%; transition: width 0.4s ease; }
+    #navBtns { margin-top: 10px; text-align: center; }
+    button.nav { background: #007bff; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; margin: 0 5px; }
+    button.nav:hover { background: #0056b3; }
+  </style>
+<body>
+  <h2>Welcome, <span id="user"></span></h2>
+  <button onclick="loadEnrolled()">View Enrolled Courses</button>
+  <button onclick="loadAll()">Enroll in New Course</button>
+  <div id="course-list"></div>
+
+  <script>
+    const studentId = localStorage.getItem('studentId');
+    const username = localStorage.getItem('username');
+    document.getElementById('user').textContent = username;
+
+    async function loadEnrolled() {
+      const res = await fetch(`/api/students/${studentId}/enrolled`);
+      const data = await res.json();
+      showCourses(data, true);
+    }
+
+    async function loadAll() {
+      const res = await fetch('/api/courses');
+      const data = await res.json();
+      showCourses(data, false);
+    }
+
+    async function enroll(courseId) {
+      const res = await fetch('/api/enroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, courseId })
+      });
+
+      const data = await res.json();
+      alert(data.message);
+    }
+
+    function showCourses(courses, enrolledView) {
+      const container = document.getElementById('course-list');
+      container.innerHTML = '';
+
+      courses.forEach(c => {
+        const div = document.createElement('div');
+        div.style.border = '1px solid #ccc';
+        div.style.padding = '10px';
+        div.style.margin = '10px';
+        div.innerHTML = `
+          <h3>${c.title}</h3>
+          <p>${c.description}</p>
+          ${enrolledView 
+            ? `<button onclick="openCourse('${c._id}')">Open Course</button>`
+            : `<button onclick="enroll('${c._id}')">Enroll</button>`}
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function openCourse(courseId) {
+      localStorage.setItem('currentCourseId', courseId);
+      window.location.href = 'index.html'; // your existing progress page
+    }
+  </script>
+</body>
+</html>

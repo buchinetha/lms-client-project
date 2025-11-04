@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎓 My Enrolled Courses</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; padding: 20px; }
+    #header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    #logoutBtn { background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+    #logoutBtn:hover { background: #b02a37; }
+    h1 { text-align: center; color: #333; }
+    .course-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+    .course-card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .course-title { font-size: 20px; color: #007bff; margin-bottom: 10px; }
+    .lesson { background: #f4f4f4; margin: 6px 0; padding: 8px 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .lesson span { font-weight: bold; }
+    .progress-container { margin-top: 10px; background: #eee; border-radius: 6px; overflow: hidden; }
+    .progress-bar { height: 10px; background: #28a745; width: 0%; transition: width 0.4s ease; }
+    #navBtns { margin-top: 10px; text-align: center; }
+    button.nav { background: #007bff; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; margin: 0 5px; }
+    button.nav:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <h1>🎓 My Enrolled Courses</h1>
+    <div>
+      <span id="welcomeUser"></span>
+      <button id="logoutBtn">Logout</button>
+    </div>
+  </div>
+
+  <div id="navBtns">
+    <button class="nav" onclick="window.location.href='all-courses.html'">📚 Enroll in New Courses</button>
+  </div>
+
+  <div id="course-list" class="course-list"></div>
+
+  <script>
+    const studentId = localStorage.getItem('studentId');
+    const username = localStorage.getItem('username');
+
+    if (!studentId) {
+      alert('Please login first');
+      window.location.href = 'login.html';
+    }
+
+    document.getElementById('welcomeUser').innerText = `👋 Welcome, ${username}`;
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.clear();
+      window.location.href = 'login.html';
+    });
+
+    // 🟢 Load only enrolled courses
+    async function loadEnrolledCourses() {
+      const res = await fetch(`/api/students/${studentId}/enrolled`);
+      const courses = await res.json();
+
+      const container = document.getElementById('course-list');
+      container.innerHTML = '';
+
+      if (courses.length === 0) {
+        container.innerHTML = `<p style="text-align:center;">You haven’t enrolled in any courses yet.<br>
+          <a href="all-courses.html">Click here to enroll now!</a></p>`;
+        return;
+      }
+
+      for (const course of courses) {
+        const progressRes = await fetch(`/api/progress/${studentId}/${course._id}`);
+        const progress = progressRes.ok ? await progressRes.json() : {};
+        const completedLessons = (progress.completedLessons || []).map(i => String(i));
+        const completionPercentage = progress.completionPercentage || 0;
+
+        const div = document.createElement('div');
+        div.className = 'course-card';
+
+        const lessonHTML = course.lessons.map((l, i) => `
+          <div class="lesson">
+            <div>
+              <span>${l.type?.toUpperCase() || 'LESSON'}</span>: ${l.title}
+              ${l.contentUrl ? `<a href="${l.contentUrl}" target="_blank">[Open]</a>` : ''}
+            </div>
+            <input type="checkbox" data-index="${i}" ${completedLessons.includes(String(i)) ? 'checked' : ''}>
+          </div>
+        `).join('');
+
+        div.innerHTML = `
+          <div class="course-title">${course.title}</div>
+          <p>${course.description}</p>
+          <div class="progress-container">
+            <div class="progress-bar" style="width: ${completionPercentage}%;"></div>
+          </div>
+          <p><strong>${completionPercentage}% Completed</strong></p>
+          <div class="lesson-list">${lessonHTML}</div>
+        `;
+
+        div.querySelectorAll('input[type="checkbox"]').forEach(chk => {
+          chk.addEventListener('change', async () => {
+            const checked = Array.from(div.querySelectorAll('input[type="checkbox"]:checked'))
+              .map(c => String(c.dataset.index));
+
+            const completionPercentage = Math.round((checked.length / course.lessons.length) * 100);
+            div.querySelector('.progress-bar').style.width = `${completionPercentage}%`;
+            div.querySelector('p strong').innerText = `${completionPercentage}% Completed`;
+
+            await fetch('/api/progress', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                studentId,
+                courseId: course._id,
+                completedLessons: checked,
+                quizResults: [],
+                completionPercentage
+              })
+            });
+          });
+        });
+
+        container.appendChild(div);
+      }
+    }
+
+    loadEnrolledCourses();
+  </script>
+</body>
+</html>

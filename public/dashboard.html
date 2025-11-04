@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Student Dashboard</title>
+</head>
+ <style>
+   .top-center {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.welcome {
+  font-size: 28px;
+  font-weight: bold;
+  color: #002b5c;
+}
+
+.action-container {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.action-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  font-size: 16px;
+  margin: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.action-btn:hover {
+  background: #0056b3;
+}
+  </style>
+<body>
+<div class="top-center">
+    <h2 class="welcome">Welcome, <span id="user"></span></h2>
+
+    <div class="action-container">
+      <button onclick="loadEnrolled()" class="action-btn">📚 View Enrolled Courses</button>
+      <button onclick="loadAll()" class="action-btn">➕ Enroll in New Course</button>
+    </div>
+  </div>
+
+  <div id="course-list"></div>
+
+
+  <script>
+    const studentId = localStorage.getItem('studentId');
+    const username = localStorage.getItem('username');
+    document.getElementById('user').textContent = username;
+
+    async function loadEnrolled() {
+      const res = await fetch(`/api/students/${studentId}/enrolled`);
+      const data = await res.json();
+      showCourses(data, true);
+    }
+
+    async function loadAll() {
+      const res = await fetch('/api/courses');
+      const data = await res.json();
+      showCourses(data, false);
+    }
+
+    async function enroll(courseId) {
+      const res = await fetch('/api/enroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, courseId })
+      });
+
+      const data = await res.json();
+      alert(data.message);
+    }
+
+    function showCourses(courses, enrolledView) {
+      const container = document.getElementById('course-list');
+      container.innerHTML = '';
+
+      courses.forEach(c => {
+        const div = document.createElement('div');
+        div.style.border = '1px solid #ccc';
+        div.style.padding = '10px';
+        div.style.margin = '10px';
+        div.innerHTML = `
+          <h3>${c.title}</h3>
+          <p>${c.description}</p>
+          ${enrolledView 
+            ? `<button onclick="openCourse('${c._id}')">Open Course</button>`
+            : `<button onclick="enroll('${c._id}')">Enroll</button>`}
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function openCourse(courseId) {
+      localStorage.setItem('currentCourseId', courseId);
+      window.location.href = 'index.html'; // your existing progress page
+    }
+  </script>
+</body>
+</html>
